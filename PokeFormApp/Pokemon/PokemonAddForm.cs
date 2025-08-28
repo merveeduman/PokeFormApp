@@ -1,126 +1,129 @@
-﻿using PokemonReviewApp.Dto;
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;
+using PokemonReviewApp.Dto;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
-
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Newtonsoft.Json;
 
 namespace PokeFormApp
 {
     public partial class PokemonAddForm : Form
     {
+        private readonly IHttpRequest _httpRequest;
+
+        private List<OwnerDto> _owners;
+        private List<CategoryDto> _categories;
+        private List<FoodDto> _foods;
+
         public PokemonAddForm()
         {
             InitializeComponent();
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
 
-            button1.Click += button1_Click; 
-            button2.Click += button2_Click; 
-            this.Load += PokemonAddForm_Load; 
+            button1.Click += button1_Click; // Kapat
+            button2.Click += button2_Click; // Ekle
+
+            this.Load += async (s, e) => await LoadFormData();
         }
 
-        private async void PokemonAddForm_Load(object sender, EventArgs e)
+        private async Task LoadFormData()
         {
             await LoadOwnersAsync();
             await LoadCategoriesAsync();
+            await LoadFoodsAsync();
         }
 
         private async Task LoadOwnersAsync()
         {
-            using var client = new HttpClient();
-            var response = await client.GetAsync("https://localhost:7091/api/Owner");
-            if (response.IsSuccessStatusCode)
+            try
             {
-                var json = await response.Content.ReadAsStringAsync();
-                var owners = JsonConvert.DeserializeObject<List<OwnerDto>>(json);
+                _owners = await _httpRequest.GetAllAsync<List<OwnerDto>>("api/Owner");
 
-                var ownerList = owners.Select(o => new
+                var ownerList = _owners.ConvertAll(o => new
                 {
                     Id = o.Id,
-                    FullName = o.FirstName + " " + o.LastName
-                }).ToList();
+                    FullName = $"{o.FirstName} {o.LastName}"
+                });
 
                 comboBox1.DataSource = ownerList;
                 comboBox1.DisplayMember = "FullName";
                 comboBox1.ValueMember = "Id";
                 comboBox1.SelectedIndex = -1;
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Owner listesi yüklenemedi.");
+                MessageBox.Show("Owner verileri alınamadı: " + ex.Message);
             }
         }
-
-
 
         private async Task LoadCategoriesAsync()
         {
-            using var client = new HttpClient();
-            var response = await client.GetAsync("https://localhost:7091/api/Category");
-            if (response.IsSuccessStatusCode)
+            try
             {
-                var json = await response.Content.ReadAsStringAsync();
-                var categories = JsonConvert.DeserializeObject<List<CategoryDto>>(json);
+                _categories = await _httpRequest.GetAllAsync<List<CategoryDto>>("api/Category");
 
-                comboBox2.DataSource = categories;
-                comboBox2.DisplayMember = "Name" +
-                    "";    
+                comboBox2.DataSource = _categories;
+                comboBox2.DisplayMember = "Name";
                 comboBox2.ValueMember = "Id";
                 comboBox2.SelectedIndex = -1;
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Category listesi yüklenemedi.");
+                MessageBox.Show("Kategori verileri alınamadı: " + ex.Message);
             }
         }
 
-
-
-        private async void button2_Click(object sender, EventArgs e)
+        private async Task LoadFoodsAsync()
         {
             try
             {
-                string name = txtName.Text.Trim();
-                string birthDateStr = textBox2.Text.Trim();
+                _foods = await _httpRequest.GetAllAsync<List<FoodDto>>("api/Food");
 
-                if (!DateTime.TryParse(birthDateStr, out DateTime birthDate))
-                {
-                    MessageBox.Show("Geçersiz tarih. Format: yyyy-MM-dd");
-                    return;
-                }
+                comboBox3.DataSource = _foods;
+                comboBox3.DisplayMember = "Name";
+                comboBox3.ValueMember = "Id";
+                comboBox3.SelectedIndex = -1;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Food verileri alınamadı: " + ex.Message);
+            }
+        }
 
-                if (comboBox1.SelectedIndex == -1)
-                {
-                    MessageBox.Show("Lütfen bir Owner seçin.");
-                    return;
-                }
+        private async void button2_Click(object sender, EventArgs e)
+        {
+            string name = txtName.Text.Trim();
+            string birthDateStr = textBox2.Text.Trim();
 
-                if (comboBox2.SelectedIndex == -1)
-                {
-                    MessageBox.Show("Lütfen bir Category seçin.");
-                    return;
-                }
+            if (string.IsNullOrEmpty(name) || !DateTime.TryParse(birthDateStr, out DateTime birthDate))
+            {
+                MessageBox.Show("Geçerli bir ad ve doğum tarihi giriniz.");
+                return;
+            }
 
-                int ownerId = (int)comboBox1.SelectedValue;
-                int categoryId = (int)comboBox2.SelectedValue;
+            if (comboBox1.SelectedIndex == -1 || comboBox2.SelectedIndex == -1 || comboBox3.SelectedIndex == -1)
+            {
+                MessageBox.Show("Lütfen tüm alanları doldurunuz (Owner, Category, Food).");
+                return;
+            }
 
-                var newPokemon = new PokemonDto
-                {
-                    Name = name,
-                    BirthDate = birthDate
-                };
+            int ownerId = (int)comboBox1.SelectedValue;
+            int categoryId = (int)comboBox2.SelectedValue;
+            int foodId = (int)comboBox3.SelectedValue;
 
-                var json = JsonConvert.SerializeObject(newPokemon);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var newPokemon = new PokemonDto
+            {
+                Name = name,
+                BirthDate = birthDate
+            };
 
+            try
+            {
+                string endpoint = $"api/Pokemon?ownerId={ownerId}&catId={categoryId}&foodId={foodId}";
+                bool success = await _httpRequest.PostAsync(endpoint, newPokemon);
 
-                var url = $"https://localhost:7091/api/Pokemon?ownerId={ownerId}&catId={categoryId}";
-
-                using var client = new HttpClient();
-                var response = await client.PostAsync(url, content);
-                if (response.IsSuccessStatusCode)
+                if (success)
                 {
                     MessageBox.Show("Pokemon başarıyla eklendi!");
                     this.DialogResult = DialogResult.OK;
@@ -128,8 +131,7 @@ namespace PokeFormApp
                 }
                 else
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    MessageBox.Show($"Hata: {response.StatusCode}\n{error}");
+                    MessageBox.Show("Ekleme başarısız.");
                 }
             }
             catch (Exception ex)

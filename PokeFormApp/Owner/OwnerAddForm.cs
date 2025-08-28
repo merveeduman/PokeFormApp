@@ -1,9 +1,8 @@
-﻿using Newtonsoft.Json;
-using PokemonReviewApp.Dto; 
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;
+using PokemonReviewApp.Dto;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -11,65 +10,47 @@ namespace PokeFormApp.Owner
 {
     public partial class OwnerAddForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
+        private readonly IHttpRequest _httpRequest;
+        private List<CountryDto> countries;
 
         public OwnerAddForm()
         {
             InitializeComponent();
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
 
-            button1.Click += async (s, e) => await AddOwnerAsync();
-            button2.Click += (s, e) => this.Close();
+            // Butonların eventlerini manuel olarak bağla
+            button1.Click += button1_Click; // Ekle butonu
+            button2.Click += button2_Click; // Kapat butonu
 
-            this.Load += OwnerAddForm_Load; // Form yüklendiğinde ülkeleri yükle
-        }
-
-        private async void OwnerAddForm_Load(object sender, EventArgs e)
-        {
-            await LoadCountriesAsync();
+            this.Load += async (s, e) => await LoadCountriesAsync(); // Form yüklenince ülkeleri yükle
         }
 
         private async Task LoadCountriesAsync()
         {
             try
             {
-                var response = await client.GetAsync("api/Country");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var countries = JsonConvert.DeserializeObject<List<CountryDto>>(json);
+                countries = await _httpRequest.GetAllAsync<List<CountryDto>>("api/Country");
 
-                    comboBox1.DataSource = countries;
-                    comboBox1.DisplayMember = "Name";  // Görünen değer
-                    comboBox1.ValueMember = "Id";      // Seçilen değer
-                    comboBox1.SelectedIndex = -1;      // Başlangıçta seçili yok
-
-               
-
-                }
-                else
-                {
-                    MessageBox.Show("Country listesi yüklenemedi.");
-                }
+                comboBox1.DataSource = countries;
+                comboBox1.DisplayMember = "Name";
+                comboBox1.ValueMember = "Id";
+                comboBox1.SelectedIndex = -1;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Hata: " + ex.Message);
+                MessageBox.Show("Ülke verileri alınamadı: " + ex.Message);
             }
         }
 
-        private async Task AddOwnerAsync()
+        private async void button1_Click(object sender, EventArgs e) // Ekle butonu
         {
             if (comboBox1.SelectedIndex == -1)
             {
-                MessageBox.Show("Lütfen bir Country seçiniz!");
+                MessageBox.Show("Lütfen bir ülke seçiniz!");
                 return;
             }
 
             int countryId = (int)comboBox1.SelectedValue;
-
             string firstName = textBox2.Text.Trim();
             string lastName = textBox3.Text.Trim();
             string gym = textBox4.Text.Trim();
@@ -80,7 +61,7 @@ namespace PokeFormApp.Owner
                 return;
             }
 
-            var ownerDto = new OwnerDto
+            var newOwner = new OwnerDto
             {
                 FirstName = firstName,
                 LastName = lastName,
@@ -89,12 +70,9 @@ namespace PokeFormApp.Owner
 
             try
             {
-                var json = JsonConvert.SerializeObject(ownerDto);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                bool success = await _httpRequest.PostAsync($"api/Owner?countryId={countryId}", newOwner);
 
-                var response = await client.PostAsync($"api/Owner?countryId={countryId}", content);
-
-                if (response.IsSuccessStatusCode)
+                if (success)
                 {
                     MessageBox.Show("Owner başarıyla eklendi!");
                     this.DialogResult = DialogResult.OK;
@@ -102,14 +80,18 @@ namespace PokeFormApp.Owner
                 }
                 else
                 {
-                    string responseContent = await response.Content.ReadAsStringAsync();
-                    MessageBox.Show($"Ekleme başarısız: {response.StatusCode}\nDetay: {responseContent}");
+                    MessageBox.Show("Owner ekleme başarısız. (Sunucu başarılı cevap vermedi)");
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Hata: " + ex.Message);
             }
+        }
+
+        private void button2_Click(object sender, EventArgs e) // Kapat butonu
+        {
+            this.Close();
         }
     }
 }

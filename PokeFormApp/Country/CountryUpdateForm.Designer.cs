@@ -63,6 +63,7 @@
             button2.TabIndex = 2;
             button2.Text = "Güncelle";
             button2.UseVisualStyleBackColor = false;
+            button2.Click += button2_Click;
             // 
             // button3
             // 
@@ -74,7 +75,7 @@
             button3.TabIndex = 3;
             button3.Text = "kapat";
             button3.UseVisualStyleBackColor = false;
-            button3.Click += button3_Click;
+            
             // 
             // label1
             // 

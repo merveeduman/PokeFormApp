@@ -41,19 +41,22 @@
             // button1
             // 
             button1.BackColor = Color.ForestGreen;
-            button1.Location = new Point(604, 363);
+            button1.Location = new Point(528, 272);
+            button1.Margin = new Padding(3, 2, 3, 2);
             button1.Name = "button1";
-            button1.Size = new Size(89, 41);
+            button1.Size = new Size(78, 31);
             button1.TabIndex = 0;
             button1.Text = "Güncelle";
             button1.UseVisualStyleBackColor = false;
+            button1.Click += button1_Click;
             // 
             // button2
             // 
             button2.BackColor = Color.Red;
-            button2.Location = new Point(67, 375);
+            button2.Location = new Point(59, 281);
+            button2.Margin = new Padding(3, 2, 3, 2);
             button2.Name = "button2";
-            button2.Size = new Size(94, 29);
+            button2.Size = new Size(82, 22);
             button2.TabIndex = 11;
             button2.Text = "Kapat";
             button2.UseVisualStyleBackColor = false;
@@ -62,57 +65,59 @@
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(167, 73);
+            label1.Location = new Point(146, 55);
             label1.Name = "label1";
-            label1.Size = new Size(41, 20);
+            label1.Size = new Size(33, 15);
             label1.TabIndex = 12;
             label1.Text = "Title:";
             // 
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new Point(167, 131);
+            label2.Location = new Point(146, 98);
             label2.Name = "label2";
-            label2.Size = new Size(39, 20);
+            label2.Size = new Size(31, 15);
             label2.TabIndex = 13;
             label2.Text = "Text:";
             // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(167, 203);
+            label3.Location = new Point(146, 152);
             label3.Name = "label3";
-            label3.Size = new Size(55, 20);
+            label3.Size = new Size(44, 15);
             label3.TabIndex = 14;
             label3.Text = "Rating:";
             // 
             // textBox1
             // 
-            textBox1.Location = new Point(288, 66);
+            textBox1.Location = new Point(252, 50);
+            textBox1.Margin = new Padding(3, 2, 3, 2);
             textBox1.Name = "textBox1";
-            textBox1.Size = new Size(125, 27);
+            textBox1.Size = new Size(110, 23);
             textBox1.TabIndex = 15;
             // 
             // textBox2
             // 
-            textBox2.Location = new Point(288, 128);
+            textBox2.Location = new Point(252, 96);
+            textBox2.Margin = new Padding(3, 2, 3, 2);
             textBox2.Name = "textBox2";
-            textBox2.Size = new Size(125, 27);
+            textBox2.Size = new Size(110, 23);
             textBox2.TabIndex = 16;
-          
             // 
             // textBox3
             // 
-            textBox3.Location = new Point(288, 200);
+            textBox3.Location = new Point(252, 150);
+            textBox3.Margin = new Padding(3, 2, 3, 2);
             textBox3.Name = "textBox3";
-            textBox3.Size = new Size(125, 27);
+            textBox3.Size = new Size(110, 23);
             textBox3.TabIndex = 17;
             // 
             // ReviewUpdateForm
             // 
-            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(700, 338);
             Controls.Add(textBox3);
             Controls.Add(textBox2);
             Controls.Add(textBox1);
@@ -121,6 +126,7 @@
             Controls.Add(label1);
             Controls.Add(button2);
             Controls.Add(button1);
+            Margin = new Padding(3, 2, 3, 2);
             Name = "ReviewUpdateForm";
             Text = "ReviewUpdateForm";
             ResumeLayout(false);

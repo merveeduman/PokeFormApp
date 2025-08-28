@@ -1,9 +1,8 @@
-﻿using PokemonReviewApp.Dto;
-using Newtonsoft.Json;
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;
+using PokemonReviewApp.Dto;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -11,16 +10,16 @@ namespace PokeFormApp
 {
     public partial class CountryForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
-
+        private readonly IHttpRequest _httpRequest;
+        private readonly string url = "api/Country";
         private bool columnsCreated = false;
 
         public CountryForm()
         {
             InitializeComponent();
+
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
+
             this.Load += async (s, e) => await GetAllCountries();
         }
 
@@ -28,32 +27,31 @@ namespace PokeFormApp
         {
             try
             {
-                var response = await client.GetAsync("api/Country");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var countries = JsonConvert.DeserializeObject<List<CountryDto>>(json);
+                var countries = await _httpRequest.GetAllAsync<List<CountryDto>>(url);
 
-                    if (!columnsCreated)
+                if (!columnsCreated)
+                {
+                    dataGridView1.AutoGenerateColumns = false;
+                    dataGridView1.Columns.Clear();
+
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn
                     {
-                        dataGridView1.AutoGenerateColumns = false;
-                        dataGridView1.Columns.Clear();
+                        DataPropertyName = "Id",
+                        HeaderText = "ID",
+                        Width = 50
+                    });
 
-                        var colId = new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID", Width = 50 };
-                        var colName = new DataGridViewTextBoxColumn { DataPropertyName = "Name", HeaderText = "Name", Width = 150 };
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn
+                    {
+                        DataPropertyName = "Name",
+                        HeaderText = "Name",
+                        Width = 150
+                    });
 
-                        dataGridView1.Columns.Add(colId);
-                        dataGridView1.Columns.Add(colName);
-
-                        columnsCreated = true;
-                    }
-
-                    dataGridView1.DataSource = countries;
+                    columnsCreated = true;
                 }
-                else
-                {
-                    MessageBox.Show("Veriler çekilemedi. Kod: " + response.StatusCode);
-                }
+
+                dataGridView1.DataSource = countries;
             }
             catch (Exception ex)
             {
@@ -63,71 +61,76 @@ namespace PokeFormApp
 
         private async Task DeleteCountry(int id)
         {
-            var response = await client.DeleteAsync($"api/Country/{id}");
-            if (response.IsSuccessStatusCode)
+            var success = await _httpRequest.DeleteAsync($"{url}/soft", id);
+            if (success)
             {
-                MessageBox.Show("Silindi!");
+                MessageBox.Show("Ülke silindi.");
                 await GetAllCountries();
             }
             else
             {
-                MessageBox.Show("Silme işlemi başarısız: " + response.StatusCode);
+                MessageBox.Show("Silme işlemi başarısız.");
             }
         }
 
+
         private async Task UpdateCountry(CountryDto updated)
         {
-            var json = JsonConvert.SerializeObject(updated);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PutAsync($"api/Country/{updated.Id}", content);
-            if (response.IsSuccessStatusCode)
-            {
-                MessageBox.Show("Güncellendi!");
-            }
-            else
-            {
-                MessageBox.Show("Güncelleme başarısız: " + response.StatusCode);
-            }
+            var success = await _httpRequest.PutAsync($"{url}/{updated.Id}", updated);
+         
         }
+
+
 
         private async void button1_Click(object sender, EventArgs e) // EKLE
         {
             var addForm = new CountryAddForm();
-            var result = addForm.ShowDialog();
-
-            if (result == DialogResult.OK)
-            {
+            if (addForm.ShowDialog() == DialogResult.OK)
                 await GetAllCountries();
-            }
         }
 
         private async void button2_Click(object sender, EventArgs e) // SİL
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
-                var secili = (CountryDto)dataGridView1.SelectedRows[0].DataBoundItem;
-                var confirm = MessageBox.Show($"{secili.Name} ülkesini silmek istiyor musunuz?", "Sil", MessageBoxButtons.YesNo);
+                var secili = dataGridView1.SelectedRows[0].DataBoundItem as CountryDto;
+                if (secili == null)
+                {
+                    MessageBox.Show("Seçilen ülke bilgisi alınamadı.");
+                    return;
+                }
 
+                var confirm = MessageBox.Show($"{secili.Name} ülkesini silmek istiyor musunuz?", "Sil", MessageBoxButtons.YesNo);
                 if (confirm == DialogResult.Yes)
                 {
                     await DeleteCountry(secili.Id);
                 }
             }
+            else
+            {
+                MessageBox.Show("Lütfen silmek için bir ülke seçin.");
+            }
         }
+
 
         private async void button3_Click(object sender, EventArgs e) // GÜNCELLE
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
                 var secili = (CountryDto)dataGridView1.SelectedRows[0].DataBoundItem;
+                var country = await _httpRequest.GetByIdAsync<CountryDto>(url, secili.Id);
 
-                var updateForm = new CountryUpdateForm(secili.Id, secili.Name);
-                var result = updateForm.ShowDialog();
+                var updateForm = new CountryUpdateForm(country.Id, country.Name);
 
-                if (result == DialogResult.OK)
+
+                if (updateForm.ShowDialog() == DialogResult.OK)
                 {
-                    secili.Name = updateForm.UpdatedCountryName;
-                    await UpdateCountry(secili);
+                    await UpdateCountry(new CountryDto
+                    {
+                        Id = country.Id,
+                        Name = updateForm.UpdatedCountryName
+                    });
+
                     await GetAllCountries();
                 }
             }
@@ -140,8 +143,6 @@ namespace PokeFormApp
 
         private void button5_Click(object sender, EventArgs e) // GERİ DÖN
         {
-            var anaForm = new Form1();
-            anaForm.Show();
             this.Close();
         }
 
@@ -150,15 +151,9 @@ namespace PokeFormApp
             if (dataGridView1.SelectedRows.Count > 0)
             {
                 var secili = (CountryDto)dataGridView1.SelectedRows[0].DataBoundItem;
+                var detay = await _httpRequest.GetByIdAsync<CountryDto>(url, secili.Id);
 
-                var response = await client.GetAsync($"api/Country/{secili.Id}");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var detay = JsonConvert.DeserializeObject<CountryDto>(json);
-
-                    MessageBox.Show($"ID: {detay.Id}\nName: {detay.Name}", "Ülke Detayı");
-                }
+                MessageBox.Show($"ID: {detay.Id}\nName: {detay.Name}", "Ülke Detayı");
             }
         }
     }

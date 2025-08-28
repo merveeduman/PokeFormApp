@@ -1,9 +1,9 @@
-﻿using Newtonsoft.Json;
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Dto;
+using PokeFormApp.Services;
 using PokemonReviewApp.Dto;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -11,50 +11,39 @@ namespace PokeFormApp.Review
 {
     public partial class ReviewForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
-
+        private readonly IHttpRequest _httpRequest;
+        private readonly string url = "api/Review";
         private bool columnsCreated = false;
 
         public ReviewForm()
         {
             InitializeComponent();
+
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
+
             this.Load += async (s, e) => await GetAllReviews();
         }
 
-        // Review listesini getirir ve DataGridView'e doldurur
         private async Task GetAllReviews()
         {
             try
             {
-                var response = await client.GetAsync("api/Review");
-                if (response.IsSuccessStatusCode)
+                var reviews = await _httpRequest.GetAllAsync<List<ReviewDto>>(url);
+
+                if (!columnsCreated)
                 {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var reviews = JsonConvert.DeserializeObject<List<ReviewDto>>(json);
+                    dataGridView1.AutoGenerateColumns = false;
+                    dataGridView1.Columns.Clear();
 
-                    if (!columnsCreated)
-                    {
-                        dataGridView1.AutoGenerateColumns = false;
-                        dataGridView1.Columns.Clear();
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID", Width = 50 });
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Title", HeaderText = "Title", Width = 150 });
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Text", HeaderText = "Text", Width = 300 });
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Rating", HeaderText = "Rating", Width = 50 });
 
-                        dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID" });
-                        dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Title", HeaderText = "Title" });
-                        dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Text", HeaderText = "Text" });
-                        dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Rating", HeaderText = "Rating" });
-
-                        columnsCreated = true;  // ÖNEMLİ: burada true olmalı
-                    }
-
-                    dataGridView1.DataSource = null;
-                    dataGridView1.DataSource = reviews;
+                    columnsCreated = true;
                 }
-                else
-                {
-                    MessageBox.Show("Review verileri alınamadı: " + response.ReasonPhrase);
-                }
+
+                dataGridView1.DataSource = reviews;
             }
             catch (Exception ex)
             {
@@ -62,71 +51,54 @@ namespace PokeFormApp.Review
             }
         }
 
-        // Review silme işlemi
         private async Task DeleteReview(int id)
         {
-            try
+            var success = await _httpRequest.DeleteAsync($"{url}/soft", id);
+            if (success)
             {
-                var response = await client.DeleteAsync($"api/Review/{id}");
-                if (response.IsSuccessStatusCode)
-                {
-                    MessageBox.Show("Review silindi.");
-                    await GetAllReviews();
-                }
-                else
-                {
-                    MessageBox.Show("Silme işlemi başarısız: " + response.ReasonPhrase);
-                }
+                MessageBox.Show("Review silindi.");
+                await GetAllReviews();
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show("Silme sırasında hata: " + ex.Message);
+                MessageBox.Show("Silme işlemi başarısız.");
             }
         }
 
-        // Review detaylarını gösterir
-        private async Task ShowReviewDetails(int id)
+        private async Task UpdateReview(ReviewDto updated)
         {
-            try
+            var success = await _httpRequest.PutAsync($"{url}/{updated.Id}", updated);
+            if (success)
             {
-                var response = await client.GetAsync($"api/Review/{id}");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var review = JsonConvert.DeserializeObject<ReviewDto>(json);
-
-                    MessageBox.Show(
-                        $"ID: {review.Id}\nTitle: {review.Title}\nText: {review.Text}\nRating: {review.Rating}",
-                        "Review Detayları");
-                }
-                else
-                {
-                    MessageBox.Show("Detay alınamadı: " + response.ReasonPhrase);
-                }
+                MessageBox.Show("Review güncellendi!");
+                await GetAllReviews();
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show("Detay alınırken hata: " + ex.Message);
+                MessageBox.Show("Güncelleme başarısız.");
             }
         }
 
-        // Ekle butonu
-        private async void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e) // Ekle
         {
             var addForm = new ReviewAddForm();
-            var result = addForm.ShowDialog();
-            if (result == DialogResult.OK)
+            if (addForm.ShowDialog() == DialogResult.OK)
             {
                 await GetAllReviews();
             }
         }
 
-        // Sil butonu
-        private async void button2_Click(object sender, EventArgs e)
+        private async void button2_Click(object sender, EventArgs e) // Sil
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
-                var selected = (ReviewDto)dataGridView1.SelectedRows[0].DataBoundItem;
+                var selected = dataGridView1.SelectedRows[0].DataBoundItem as ReviewDto;
+                if (selected == null)
+                {
+                    MessageBox.Show("Seçilen review bilgisi alınamadı.");
+                    return;
+                }
+
                 var confirm = MessageBox.Show($"Review #{selected.Id} silinsin mi?", "Sil", MessageBoxButtons.YesNo);
                 if (confirm == DialogResult.Yes)
                 {
@@ -135,62 +107,70 @@ namespace PokeFormApp.Review
             }
             else
             {
-                MessageBox.Show("Lütfen bir satır seçin.");
+                MessageBox.Show("Lütfen silmek için bir satır seçin.");
             }
         }
 
-        // Güncelle butonu
-        private async void button3_Click(object sender, EventArgs e)
+        private async void button3_Click(object sender, EventArgs e) // Güncelle
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
-                var selected = (ReviewDto)dataGridView1.SelectedRows[0].DataBoundItem;
-                ReviewCreateDto reviewCreateDto = new ReviewCreateDto
+                var selected = dataGridView1.SelectedRows[0].DataBoundItem as ReviewDto;
+                if (selected == null)
                 {
-                    Id = selected.Id,
-                    Rating = selected.Rating,
-                    Text = selected.Text,
-                    Title = selected.Title,
-                };
-                var updateForm = new ReviewUpdateForm(reviewCreateDto);
-                var result = updateForm.ShowDialog();
+                    MessageBox.Show("Seçilen review bilgisi alınamadı.");
+                    return;
+                }
 
-                if (result == DialogResult.OK)
+                // Burada ReviewUpdateDto'ya dönüşüm yapıyoruz
+                var review = await _httpRequest.GetByIdAsync<ReviewUpdateDto>(url, selected.Id);
+
+                var updateForm = new ReviewUpdateForm(review);
+
+                if (updateForm.ShowDialog() == DialogResult.OK && updateForm.UpdatedReview != null)
                 {
-                    await GetAllReviews();
+                    await UpdateReview(updateForm.UpdatedReview);
                 }
             }
             else
             {
-                MessageBox.Show("Lütfen bir satır seçin.");
+                MessageBox.Show("Lütfen güncellemek için bir satır seçin.");
             }
         }
 
-        // Detay butonu
-        private async void button4_Click(object sender, EventArgs e)
+
+        private async void button4_Click(object sender, EventArgs e) // Detay
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
-                var selected = (ReviewDto)dataGridView1.SelectedRows[0].DataBoundItem;
-                await ShowReviewDetails(selected.Id);
+                var selected = dataGridView1.SelectedRows[0].DataBoundItem as ReviewDto;
+                if (selected == null)
+                {
+                    MessageBox.Show("Seçilen review bilgisi alınamadı.");
+                    return;
+                }
+
+                var review = await _httpRequest.GetByIdAsync<ReviewDto>(url, selected.Id);
+                if (review != null)
+                {
+                    MessageBox.Show(
+                        $"ID: {review.Id}\nTitle: {review.Title}\nText: {review.Text}\nRating: {review.Rating}",
+                        "Review Detayı");
+                }
             }
             else
             {
-                MessageBox.Show("Lütfen bir satır seçin.");
+                MessageBox.Show("Lütfen detay için bir satır seçin.");
             }
         }
 
-        // Yenile butonu
-        private async void button5_Click(object sender, EventArgs e)
+        private async void button5_Click(object sender, EventArgs e) // Yenile
         {
             await GetAllReviews();
         }
 
-        // Geri dön butonu
-        private void button6_Click(object sender, EventArgs e)
+        private void button6_Click(object sender, EventArgs e) // Geri dön
         {
-            var mainForm = new Form1();
-            mainForm.Show();
             this.Close();
         }
     }

@@ -1,7 +1,8 @@
 ﻿using Newtonsoft.Json;
+using PokeFormApp.Autofac;
+using PokeFormApp.Services;  // HttpRequest servisi için
 using PokemonReviewApp.Dto;
 using System;
-using System.Net.Http;
 using System.Text;
 using System.Windows.Forms;
 
@@ -9,17 +10,15 @@ namespace PokeFormApp
 {
     public partial class CountryAddForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
+        private readonly IHttpRequest _httpRequest;
 
         public CountryAddForm()
         {
             InitializeComponent();
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
         }
 
-        private async void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e) // Ekle butonu
         {
             string countryName = textBox1.Text.Trim();
 
@@ -33,20 +32,17 @@ namespace PokeFormApp
 
             try
             {
-                string json = JsonConvert.SerializeObject(newCountry);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                bool success = await _httpRequest.PostAsync("api/Country", newCountry);
 
-                var response = await client.PostAsync("api/Country", content);
-
-                if (response.IsSuccessStatusCode)
+                if (success)
                 {
-                    MessageBox.Show("Eklendi!");
+                    MessageBox.Show("Ülke başarıyla eklendi!");
                     this.DialogResult = DialogResult.OK;
                     this.Close();
                 }
                 else
                 {
-                    MessageBox.Show("Ekleme başarısız: " + response.ReasonPhrase);
+                    MessageBox.Show("Ekleme başarısız oldu.");
                 }
             }
             catch (Exception ex)
@@ -55,7 +51,7 @@ namespace PokeFormApp
             }
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void button2_Click(object sender, EventArgs e) // Kapat butonu
         {
             this.Close();
         }

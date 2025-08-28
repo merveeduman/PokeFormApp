@@ -1,36 +1,32 @@
-﻿using System;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Dto;
+using PokeFormApp.Services;
+using PokemonReviewApp.Dto;
+using System;
 using System.Windows.Forms;
-using Newtonsoft.Json;
-using PokemonReviewApp.Dto;  // DTO namespace'ini ekle
 
 namespace PokeFormApp.Review
 {
     public partial class ReviewUpdateForm : Form
     {
-        private ReviewCreateDto currentReview;
+        private readonly IHttpRequest _httpRequest;
+        private ReviewUpdateDto currentReview;
 
-        public ReviewCreateDto UpdatedReview { get; private set; }
+        public ReviewDto UpdatedReview { get; private set; }
 
-        public ReviewUpdateForm(ReviewCreateDto reviewDto)
+        public ReviewUpdateForm(ReviewUpdateDto reviewDto)
         {
             InitializeComponent();
 
             currentReview = reviewDto;
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
 
-            // Textbox'ları doldur
             textBox1.Text = currentReview.Title;
             textBox2.Text = currentReview.Text;
             textBox3.Text = currentReview.Rating.ToString();
-
-            // Buton eventlerini bağla
-            button1.Click += async (s, e) => await UpdateReviewAsync();
-            button2.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
         }
 
-        private async Task UpdateReviewAsync()
+        private async void button1_Click(object sender, EventArgs e) // Güncelle butonu
         {
             string title = textBox1.Text.Trim();
             string text = textBox2.Text.Trim();
@@ -47,37 +43,36 @@ namespace PokeFormApp.Review
                 return;
             }
 
-            // Güncellenmiş DTO oluşturuyoruz
-            var updatedReviewDto = new ReviewDto
+            var updatedReviewDto = new ReviewUpdateDto
             {
                 Id = currentReview.Id,
                 Title = title,
                 Text = text,
                 Rating = rating,
-
+                ReviewerId = currentReview.ReviewerId,
+                PokemonId = currentReview.PokemonId
             };
 
             try
             {
-                using (HttpClient client = new HttpClient())
+                bool success = await _httpRequest.PutAsync($"api/Review/{updatedReviewDto.Id}", updatedReviewDto);
+
+                if (success)
                 {
-                    client.BaseAddress = new Uri("https://localhost:7091/");
-
-                    string json = JsonConvert.SerializeObject(updatedReviewDto);
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                    var response = await client.PutAsync($"api/Review/{updatedReviewDto.Id}", content);
-
-                    if (response.IsSuccessStatusCode)
+                    MessageBox.Show("Review başarıyla güncellendi.");
+                    UpdatedReview = new ReviewDto
                     {
-                        MessageBox.Show("Review başarıyla güncellendi.");
-                        this.DialogResult = DialogResult.OK;
-                        this.Close();
-                    }
-                    else
-                    {
-                        MessageBox.Show($"Güncelleme başarısız: {response.StatusCode}");
-                    }
+                        Id = updatedReviewDto.Id,
+                        Title = updatedReviewDto.Title,
+                        Text = updatedReviewDto.Text,
+                        Rating = updatedReviewDto.Rating
+                    };
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                }
+                else
+                {
+                    MessageBox.Show("Güncelleme başarısız.");
                 }
             }
             catch (Exception ex)
@@ -86,11 +81,10 @@ namespace PokeFormApp.Review
             }
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void button2_Click(object sender, EventArgs e) // Kapat butonu
         {
-
+            this.DialogResult = DialogResult.Cancel;
+            this.Close();
         }
-
-       
     }
 }

@@ -1,22 +1,19 @@
-﻿using Newtonsoft.Json;
-using PokemonReviewApp.Dto; // DTO namespace'i
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;  // IHttpRequest için
+using PokemonReviewApp.Dto;
 using System;
-using System.Net.Http;
-using System.Text;
 using System.Windows.Forms;
 
 namespace PokeFormApp
 {
     public partial class CategoryAddForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
+        private readonly IHttpRequest _httpRequest;
 
         public CategoryAddForm()
         {
             InitializeComponent();
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
         }
 
         private async void button1_Click(object sender, EventArgs e) // Ekle butonu
@@ -29,27 +26,21 @@ namespace PokeFormApp
                 return;
             }
 
-            var newCategory = new CategoryDto
-            {
-                Name = categoryName
-            };
+            var newCategory = new CategoryDto { Name = categoryName };
 
             try
             {
-                string json = JsonConvert.SerializeObject(newCategory);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                bool success = await _httpRequest.PostAsync("api/Category", newCategory);
 
-                var response = await client.PostAsync("api/Category", content);
-
-                if (response.IsSuccessStatusCode)
+                if (success)
                 {
-                    MessageBox.Show("Kategori eklendi!");
+                    MessageBox.Show("Kategori başarıyla eklendi!");
                     this.DialogResult = DialogResult.OK;
                     this.Close();
                 }
                 else
                 {
-                    MessageBox.Show("Ekleme başarısız: " + response.ReasonPhrase);
+                    MessageBox.Show("Kategori ekleme başarısız oldu.");
                 }
             }
             catch (Exception ex)

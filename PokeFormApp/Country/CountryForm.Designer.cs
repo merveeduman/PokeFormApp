@@ -1,6 +1,6 @@
 ﻿namespace PokeFormApp
 {
-    partial class CountryForm
+    partial class CountryForm : Form
     {
         /// <summary>
         /// Required designer variable.

@@ -45,6 +45,8 @@ namespace PokeFormApp
             textBox2 = new TextBox();
             comboBox1 = new ComboBox();
             comboBox2 = new ComboBox();
+            label5 = new Label();
+            comboBox3 = new ComboBox();
             SuspendLayout();
             // 
             // button1
@@ -139,11 +141,31 @@ namespace PokeFormApp
             comboBox2.Size = new Size(196, 23);
             comboBox2.TabIndex = 9;
             // 
+            // label5
+            // 
+            label5.AutoSize = true;
+            label5.Location = new Point(69, 201);
+            label5.Name = "label5";
+            label5.Size = new Size(47, 15);
+            label5.TabIndex = 10;
+            label5.Text = "FoodId:";
+            // 
+            // comboBox3
+            // 
+            comboBox3.FormattingEnabled = true;
+            comboBox3.Location = new Point(331, 201);
+            comboBox3.Margin = new Padding(3, 2, 3, 2);
+            comboBox3.Name = "comboBox3";
+            comboBox3.Size = new Size(196, 23);
+            comboBox3.TabIndex = 11;
+            // 
             // PokemonAddForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(700, 338);
+            Controls.Add(comboBox3);
+            Controls.Add(label5);
             Controls.Add(comboBox2);
             Controls.Add(comboBox1);
             Controls.Add(textBox2);
@@ -157,7 +179,7 @@ namespace PokeFormApp
             Margin = new Padding(3, 2, 3, 2);
             Name = "PokemonAddForm";
             Text = "PokemonAddForm";
-            Load += PokemonAddForm_Load;
+         
             ResumeLayout(false);
             PerformLayout();
         }
@@ -172,9 +194,10 @@ namespace PokeFormApp
         private Label label4;
         private TextBox txtName;
         private TextBox textBox2;
-        private TextBox textBox3;
         private TextBox textBox4;
         private ComboBox comboBox1;
         private ComboBox comboBox2;
+        private Label label5;
+        private ComboBox comboBox3;
     }
 }

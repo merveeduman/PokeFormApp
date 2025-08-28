@@ -1,7 +1,10 @@
-using PokeFormApp;
+using Autofac;
 using PokeFormApp.Owner;
 using PokeFormApp.Review;
 using PokeFormApp.Reviewer;
+using System;
+using System.Windows.Forms;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace PokeFormApp
 {
@@ -10,48 +13,57 @@ namespace PokeFormApp
         public Form1()
         {
             InitializeComponent();
-            
-
+            Console.WriteLine("Token: " + SessionManager.Token);
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            PokemonForm form = new PokemonForm(); // Yeni form nesnesi oluþtur
-            form.Show(); 
-
+            PokemonForm pokemonForm = new PokemonForm();
+            pokemonForm.Show();
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            var form = new CountryForm();
-            form.Show(); // veya form.ShowDialog(); ama Show yeterli
+            CountryForm countryForm = new CountryForm();
+            countryForm.Show();
+        
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-            var form = new CategoryForm();
-            form.Show(); // veya form.ShowDialog(); ama Show yeterli
+            CategoryForm categoryForm = new CategoryForm();
+            categoryForm.Show();
+
         }
-        
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            OwnerForm ownerForm = new OwnerForm();
+            ownerForm.Show();
+        }
 
         private void button5_Click(object sender, EventArgs e)
         {
-            var form = new ReviewForm();
-            form.Show(); // veya form.ShowDialog(); ama Show yeterli
-        }
-        private void button4_Click(object sender, EventArgs e)
-        {
-            var form = new OwnerForm
-            {
-                StartPosition = FormStartPosition.CenterScreen
-            };
-            form.Show();
+            ReviewForm reviewForm = new ReviewForm();
+            reviewForm.Show();
         }
 
         private void button6_Click(object sender, EventArgs e)
         {
-            var form = new ReviewerForm();
-            form.ShowDialog();
+            ReviewerForm reviewerForm = new ReviewerForm();
+            reviewerForm.Show();
+        }
+
+        private void button7_Click(object sender, EventArgs e)
+        {
+            FoodForm foodForm = new FoodForm();
+            foodForm.Show(); 
+        }
+
+        private void button8_Click(object sender, EventArgs e)
+        {
+            FoodTypeForm foodTypeForm = new FoodTypeForm();
+            foodTypeForm.Show();
         }
     }
 }

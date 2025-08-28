@@ -1,17 +1,26 @@
+﻿using Autofac;
+using PokeFormApp.Owner;
+using PokeFormApp.Review;
+using PokeFormApp.Reviewer;
+using PokeFormApp.Services;
+using System;
+using System.Windows.Forms;
+
 namespace PokeFormApp
 {
     internal static class Program
     {
-        /// <summary>
-        ///  The main entry point for the application.
-        /// </summary>
+        public static IContainer Container { get; private set; }
+
         [STAThread]
         static void Main()
         {
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
-            ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+             Application.Run(new Login());
+            
+
+            
         }
     }
 }

@@ -49,7 +49,7 @@ namespace PokeFormApp
             button2.Text = "Güncelle";
             button2.UseVisualStyleBackColor = false;
             button2.Click += button2_Click;
-            button2.MouseClick += button2_MouseClick;
+           
             // 
             // button1
             // 
@@ -111,7 +111,7 @@ namespace PokeFormApp
             Margin = new Padding(3, 2, 3, 2);
             Name = "PokemonUpdateForm";
             Text = "PokemonUpdateForm";
-            Load += PokemonUpdateForm_Load;
+            
             ResumeLayout(false);
             PerformLayout();
         }

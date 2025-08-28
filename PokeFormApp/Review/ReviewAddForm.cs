@@ -1,22 +1,21 @@
-﻿using Newtonsoft.Json;
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;  // IHttpRequest servisi için
 using PokemonReviewApp.Dto;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace PokeFormApp.Review
 {
     public partial class ReviewAddForm : Form
     {
-        private readonly HttpClient client = new HttpClient { BaseAddress = new Uri("https://localhost:7091/") };
+        private readonly IHttpRequest _httpRequest;
 
         public ReviewAddForm()
         {
             InitializeComponent();
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
 
             this.Load += async (s, e) =>
             {
@@ -27,92 +26,110 @@ namespace PokeFormApp.Review
 
         private async Task LoadReviewers()
         {
-            var response = await client.GetAsync("api/Reviewer");
-            if (response.IsSuccessStatusCode)
+            try
             {
-                var json = await response.Content.ReadAsStringAsync();
-                var reviewers = JsonConvert.DeserializeObject<List<ReviewerDto>>(json);
+                var reviewers = await _httpRequest.GetAllAsync<List<ReviewerDto>>("api/Reviewer");
 
-                comboBox1.DataSource = reviewers;
-                comboBox1.DisplayMember = "Name";
-                comboBox1.ValueMember = "Id";
-                
-
-                var reviewerList = reviewers.Select(o => new
+                if (reviewers != null)
                 {
-                    Id = o.Id,
-                    FullName = o.FirstName + " " + o.LastName
-                }).ToList();
+                    var reviewerList = new List<object>();
+                    foreach (var r in reviewers)
+                    {
+                        reviewerList.Add(new
+                        {
+                            Id = r.Id,
+                            FullName = r.FirstName + " " + r.LastName
+                        });
+                    }
 
-                comboBox1.DataSource = reviewerList;
-                comboBox1.DisplayMember = "FullName";
-                comboBox1.ValueMember = "Id";
-                comboBox1.SelectedIndex = -1;
+                    comboBox1.DataSource = reviewerList;
+                    comboBox1.DisplayMember = "FullName";
+                    comboBox1.ValueMember = "Id";
+                    comboBox1.SelectedIndex = -1;
+                }
+                else
+                {
+                    MessageBox.Show("Reviewer verileri alınamadı.");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Reviewer verileri alınamadı.");
+                MessageBox.Show("Reviewer yüklenirken hata: " + ex.Message);
             }
         }
 
         private async Task LoadPokemons()
         {
-            var response = await client.GetAsync("api/Pokemon");
-            if (response.IsSuccessStatusCode)
+            try
             {
-                var json = await response.Content.ReadAsStringAsync();
-                var pokemons = JsonConvert.DeserializeObject<List<PokemonDto>>(json);
+                var pokemons = await _httpRequest.GetAllAsync<List<PokemonDto>>("api/Pokemon");
 
-                comboBox2.DataSource = pokemons;
-                comboBox2.DisplayMember = "Name";
-                comboBox2.ValueMember = "Id";
-                comboBox2.SelectedIndex = -1;
-
+                if (pokemons != null)
+                {
+                    comboBox2.DataSource = pokemons;
+                    comboBox2.DisplayMember = "Name";
+                    comboBox2.ValueMember = "Id";
+                    comboBox2.SelectedIndex = -1;
+                }
+                else
+                {
+                    MessageBox.Show("Pokemon verileri alınamadı.");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Pokemon verileri alınamadı.");
+                MessageBox.Show("Pokemon yüklenirken hata: " + ex.Message);
             }
         }
 
-        private async void button1_Click(object sender, EventArgs e) // EKLE
+        private async void button1_Click(object sender, EventArgs e) // Ekle
         {
+            if (comboBox1.SelectedIndex == -1)
+            {
+                MessageBox.Show("Lütfen bir reviewer seçin.");
+                return;
+            }
+            if (comboBox2.SelectedIndex == -1)
+            {
+                MessageBox.Show("Lütfen bir pokemon seçin.");
+                return;
+            }
+
             var createDto = new ReviewCreateDto
             {
-                Title = textBox3.Text,
-                Text = textBox4.Text,
+                Title = textBox3.Text.Trim(),
+                Text = textBox4.Text.Trim(),
                 Rating = int.TryParse(textBox5.Text, out int rating) ? rating : 0
-
             };
 
             int reviewerId = Convert.ToInt32(comboBox1.SelectedValue);
             int pokemonId = Convert.ToInt32(comboBox2.SelectedValue);
 
-            string json = JsonConvert.SerializeObject(createDto);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync($"api/Review?reviewerId={reviewerId}&pokeId={pokemonId}", content);
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                MessageBox.Show("Review başarıyla eklendi.");
-                this.DialogResult = DialogResult.OK;
-                this.Close();
+                bool success = await _httpRequest.PostAsync($"api/Review?reviewerId={reviewerId}&pokeId={pokemonId}", createDto);
+
+
+                if (success)
+                {
+                    MessageBox.Show("Review başarıyla eklendi.");
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                }
+                else
+                {
+                    MessageBox.Show("Ekleme başarısız oldu.");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show($"Ekleme başarısız: {response.ReasonPhrase}");
+                MessageBox.Show("Hata: " + ex.Message);
             }
         }
 
-        private void button2_Click(object sender, EventArgs e) // KAPAT
+        private void button2_Click(object sender, EventArgs e) // Kapat
         {
             this.Close();
-        }
-
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
         }
     }
 }

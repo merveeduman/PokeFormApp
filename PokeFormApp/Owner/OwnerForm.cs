@@ -1,9 +1,8 @@
-﻿using Newtonsoft.Json;
-using PokemonReviewApp.Dto; // <-- Dto burada da kullanılmalı
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;
+using PokemonReviewApp.Dto;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -11,16 +10,16 @@ namespace PokeFormApp.Owner
 {
     public partial class OwnerForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
-
+        private readonly IHttpRequest _httpRequest;
+        private readonly string url = "api/Owner";
         private bool columnsCreated = false;
 
         public OwnerForm()
         {
             InitializeComponent();
+
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
+
             this.Load += async (s, e) => await GetAllOwners();
         }
 
@@ -28,31 +27,22 @@ namespace PokeFormApp.Owner
         {
             try
             {
-                var response = await client.GetAsync("api/Owner");
-                if (response.IsSuccessStatusCode)
+                var owners = await _httpRequest.GetAllAsync<List<OwnerDto>>(url);
+
+                if (!columnsCreated)
                 {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var owners = JsonConvert.DeserializeObject<List<OwnerDto>>(json);
+                    dataGridView1.AutoGenerateColumns = false;
+                    dataGridView1.Columns.Clear();
 
-                    if (!columnsCreated)
-                    {
-                        dataGridView1.AutoGenerateColumns = false;
-                        dataGridView1.Columns.Clear();
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID", Width = 50 });
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirstName", HeaderText = "First Name", Width = 100 });
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "LastName", HeaderText = "Last Name", Width = 100 });
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Gym", HeaderText = "Gym", Width = 150 });
 
-                        dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID", Width = 50 });
-                        dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirstName", HeaderText = "First Name", Width = 100 });
-                        dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "LastName", HeaderText = "Last Name", Width = 100 });
-                        dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Gym", HeaderText = "Gym", Width = 150 });
-
-                        columnsCreated = true;
-                    }
-
-                    dataGridView1.DataSource = owners;
+                    columnsCreated = true;
                 }
-                else
-                {
-                    MessageBox.Show("Veriler çekilemedi. Kod: " + response.StatusCode);
-                }
+
+                dataGridView1.DataSource = owners;
             }
             catch (Exception ex)
             {
@@ -62,50 +52,50 @@ namespace PokeFormApp.Owner
 
         private async Task DeleteOwner(int id)
         {
-            var response = await client.DeleteAsync($"api/Owner/{id}");
-            if (response.IsSuccessStatusCode)
+            var success = await _httpRequest.DeleteAsync($"{url}/soft", id); // Eğer soft delete destekleniyorsa
+            if (success)
             {
                 MessageBox.Show("Owner silindi!");
                 await GetAllOwners();
             }
             else
             {
-                MessageBox.Show($"Silme başarısız: {response.StatusCode}");
+                MessageBox.Show("Silme işlemi başarısız.");
             }
         }
 
         private async Task UpdateOwner(OwnerDto updated)
         {
-            var json = JsonConvert.SerializeObject(updated);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PutAsync($"api/Owner/{updated.Id}", content);
-
-            if (response.IsSuccessStatusCode)
+            var success = await _httpRequest.PutAsync($"{url}/{updated.Id}", updated);
+            if (success)
             {
                 MessageBox.Show("Owner güncellendi!");
             }
             else
             {
-                MessageBox.Show("Güncelleme başarısız: " + response.StatusCode);
+                MessageBox.Show("Güncelleme başarısız.");
             }
         }
 
-        private async void button1_Click(object sender, EventArgs e) // Ekle
+        private async void button1_Click(object sender, EventArgs e) // EKLE
         {
             var addForm = new OwnerAddForm();
             if (addForm.ShowDialog() == DialogResult.OK)
-            {
                 await GetAllOwners();
-            }
         }
 
-        private async void button2_Click(object sender, EventArgs e) // Sil
+        private async void button2_Click(object sender, EventArgs e) // SİL
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
-                var selected = (OwnerDto)dataGridView1.SelectedRows[0].DataBoundItem;
-                var confirm = MessageBox.Show($"{selected.FirstName} {selected.LastName} silinsin mi?", "Sil", MessageBoxButtons.YesNo);
+                var selected = dataGridView1.SelectedRows[0].DataBoundItem as OwnerDto;
+                if (selected == null)
+                {
+                    MessageBox.Show("Seçilen owner bilgisi alınamadı.");
+                    return;
+                }
 
+                var confirm = MessageBox.Show($"{selected.FirstName} {selected.LastName} silinsin mi?", "Sil", MessageBoxButtons.YesNo);
                 if (confirm == DialogResult.Yes)
                 {
                     await DeleteOwner(selected.Id);
@@ -113,17 +103,19 @@ namespace PokeFormApp.Owner
             }
             else
             {
-                MessageBox.Show("Lütfen bir Owner seçin!");
+                MessageBox.Show("Lütfen silmek için bir owner seçin.");
             }
         }
 
-        private async void button3_Click(object sender, EventArgs e) // Güncelle
+        private async void button3_Click(object sender, EventArgs e) // GÜNCELLE
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
                 var selected = (OwnerDto)dataGridView1.SelectedRows[0].DataBoundItem;
+                var owner = await _httpRequest.GetByIdAsync<OwnerDto>(url, selected.Id);
 
-                var updateForm = new OwnerUpdateForm(selected.Id, selected.FirstName, selected.LastName, selected.Gym);
+                var updateForm = new OwnerUpdateForm(owner.Id, owner.FirstName, owner.LastName, owner.Gym);
+
                 if (updateForm.ShowDialog() == DialogResult.OK && updateForm.UpdatedOwner != null)
                 {
                     await UpdateOwner(updateForm.UpdatedOwner);
@@ -132,32 +124,24 @@ namespace PokeFormApp.Owner
             }
         }
 
-        private async void button4_Click(object sender, EventArgs e) // Detay
+        private async void button4_Click(object sender, EventArgs e) // DETAY
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
                 var selected = (OwnerDto)dataGridView1.SelectedRows[0].DataBoundItem;
+                var detail = await _httpRequest.GetByIdAsync<OwnerDto>(url, selected.Id);
 
-                var response = await client.GetAsync($"api/Owner/{selected.Id}");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var detay = JsonConvert.DeserializeObject<OwnerDto>(json);
-
-                    MessageBox.Show($"ID: {detay.Id}\nFirst Name: {detay.FirstName}\nLast Name: {detay.LastName}\nGym: {detay.Gym}", "Owner Detayı");
-                }
+                MessageBox.Show($"ID: {detail.Id}\nFirst Name: {detail.FirstName}\nLast Name: {detail.LastName}\nGym: {detail.Gym}", "Owner Detayı");
             }
         }
 
-        private async void button5_Click(object sender, EventArgs e) // Yenile
+        private async void button5_Click(object sender, EventArgs e) // YENİLE
         {
             await GetAllOwners();
         }
 
-        private void button6_Click(object sender, EventArgs e) // Geri Dön
+        private void button6_Click(object sender, EventArgs e) // GERİ DÖN
         {
-            var mainForm = new Form1();
-            mainForm.Show();
             this.Close();
         }
     }

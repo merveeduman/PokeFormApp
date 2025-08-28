@@ -1,6 +1,7 @@
 ﻿namespace PokeFormApp
 {
-    partial class CategoryForm
+    partial class CategoryForm : Form
+
     {
         /// <summary>
         /// Required designer variable.
@@ -47,7 +48,7 @@
             dataGridView1.Name = "dataGridView1";
             dataGridView1.RowHeadersWidth = 51;
             dataGridView1.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dataGridView1.Size = new Size(374, 174);
+            dataGridView1.Size = new Size(470, 219);
             dataGridView1.TabIndex = 0;
             // 
             // label1

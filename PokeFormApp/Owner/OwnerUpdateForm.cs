@@ -1,8 +1,7 @@
-﻿using Newtonsoft.Json;
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;
 using PokemonReviewApp.Dto;
 using System;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -10,12 +9,8 @@ namespace PokeFormApp.Owner
 {
     public partial class OwnerUpdateForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
-
-        private int ownerId;
+        private readonly int ownerId;
+        private readonly IHttpRequest _httpRequest;
 
         public OwnerDto UpdatedOwner { get; private set; }
 
@@ -24,6 +19,7 @@ namespace PokeFormApp.Owner
             InitializeComponent();
 
             ownerId = id;
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
 
             textBox1.Text = id.ToString();
             textBox1.ReadOnly = true;
@@ -57,12 +53,9 @@ namespace PokeFormApp.Owner
 
             try
             {
-                var json = JsonConvert.SerializeObject(updatedOwner);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                bool success = await _httpRequest.PutAsync($"api/Owner/{ownerId}", updatedOwner);
 
-                var response = await client.PutAsync($"api/Owner/{ownerId}", content);
-
-                if (response.IsSuccessStatusCode)
+                if (success)
                 {
                     UpdatedOwner = updatedOwner;
                     MessageBox.Show("Owner başarıyla güncellendi!");
@@ -71,7 +64,7 @@ namespace PokeFormApp.Owner
                 }
                 else
                 {
-                    MessageBox.Show("Güncelleme başarısız: " + response.StatusCode);
+                    MessageBox.Show("Güncelleme başarısız.");
                 }
             }
             catch (Exception ex)

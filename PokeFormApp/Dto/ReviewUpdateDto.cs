@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace PokeFormApp.Dto
 {
-    internal class ReviewUpdateDto
+    public class ReviewUpdateDto
     {
         public int Id { get; set; } // Güncellemede gerekli
         public string Title { get; set; }

@@ -1,8 +1,7 @@
-﻿using Newtonsoft.Json;
-using PokemonReviewApp.Dto;  // DTO namespace
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services; // IHttpRequest için
+using PokemonReviewApp.Dto;
 using System;
-using System.Net.Http;
-using System.Text;
 using System.Windows.Forms;
 
 namespace PokeFormApp
@@ -10,15 +9,19 @@ namespace PokeFormApp
     public partial class CategoryUpdateForm : Form
     {
         private int categoryId;
+        private readonly IHttpRequest _httpRequest;
+
+        public string UpdatedCategoryName => textBox1.Text.Trim();
 
         public CategoryUpdateForm(int id, string name)
         {
             InitializeComponent();
             categoryId = id;
-            textBox1.Text = name;  // Kategori ismi inputu
+            textBox1.Text = name;
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
         }
 
-        private async void button1_Click(object sender, EventArgs e) // Güncelleme butonu
+        private async void button1_Click(object sender, EventArgs e)
         {
             string newName = textBox1.Text.Trim();
 
@@ -28,34 +31,28 @@ namespace PokeFormApp
                 return;
             }
 
-            var updatedCategory = new CategoryDto
+            var updatedCategory = new CategoryDto { Id = categoryId, Name = newName };
+
+            try
             {
-                Id = categoryId,
-                Name = newName
-            };
+                bool success = await _httpRequest.PutAsync("api/Category/" + categoryId, updatedCategory);
 
-            using (HttpClient client = new HttpClient())
-            {
-                client.BaseAddress = new Uri("https://localhost:7091/");
-                string json = JsonConvert.SerializeObject(updatedCategory);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var response = await client.PutAsync($"api/Category/{categoryId}", content);
-
-                if (response.IsSuccessStatusCode)
+                if (success)
                 {
                     MessageBox.Show("Kategori güncellendi.");
                     this.DialogResult = DialogResult.OK;
                     this.Close();
                 }
-                else
-                {
-                    MessageBox.Show("Güncelleme başarısız!");
-                }
+             
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Hata: " + ex.Message);
             }
         }
 
-        private void button2_Click(object sender, EventArgs e) // Kapatma butonu
+
+        private void button2_Click(object sender, EventArgs e)
         {
             this.Close();
         }

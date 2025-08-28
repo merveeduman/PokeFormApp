@@ -1,31 +1,28 @@
-﻿using System;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using Newtonsoft.Json;
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;  // IHttpRequest servisi için
 using PokemonReviewApp.Dto;
+using System;
+using System.Windows.Forms;
 
 namespace PokeFormApp.Reviewer
 {
     public partial class ReviewerAddForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
+        private readonly IHttpRequest _httpRequest;
+
+        public string FirstName => textBox1.Text.Trim();
+        public string LastName => textBox2.Text.Trim();
 
         public ReviewerAddForm()
         {
             InitializeComponent();
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
+
         }
 
-        private async void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e) // Ekle butonu
         {
-            string firstName = textBox1.Text.Trim();
-            string lastName = textBox2.Text.Trim();
-
-            if (string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName))
+            if (string.IsNullOrEmpty(FirstName) || string.IsNullOrEmpty(LastName))
             {
                 MessageBox.Show("Lütfen tüm alanları doldurun.");
                 return;
@@ -33,27 +30,32 @@ namespace PokeFormApp.Reviewer
 
             var newReviewer = new ReviewerDto
             {
-                FirstName = firstName,
-                LastName = lastName
+                FirstName = FirstName,
+                LastName = LastName
             };
 
-            var json = JsonConvert.SerializeObject(newReviewer);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            try
+            {
+                bool success = await _httpRequest.PostAsync("api/Reviewer", newReviewer);
 
-            var response = await client.PostAsync("api/Reviewer", content);
-            if (response.IsSuccessStatusCode)
-            {
-                MessageBox.Show("Reviewer eklendi!");
-                this.DialogResult = DialogResult.OK;
-                this.Close();
+                if (success)
+                {
+                    MessageBox.Show("Reviewer başarıyla eklendi!");
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                }
+                else
+                {
+                    MessageBox.Show("Ekleme başarısız oldu.");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Ekleme başarısız.");
+                MessageBox.Show("Hata: " + ex.Message);
             }
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void button2_Click(object sender, EventArgs e) // Kapat butonu
         {
             this.Close();
         }

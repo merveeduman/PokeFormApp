@@ -1,26 +1,27 @@
-﻿using System;
-using System.Net.Http;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services; // IHttpRequest için
 using PokemonReviewApp.Dto;
+using System;
+using System.Windows.Forms;
 
 namespace PokeFormApp.Reviewer
 {
     public partial class ReviewerUpdateForm : Form
     {
         private int reviewerId;
-        public ReviewerDto UpdatedReviewer { get; private set; }
+        private readonly IHttpRequest _httpRequest;
+
+        public string UpdatedFirstName => textBox1.Text.Trim();
+        public string UpdatedLastName => textBox2.Text.Trim();
 
         public ReviewerUpdateForm(int id, string firstName, string lastName)
         {
             InitializeComponent();
-
             reviewerId = id;
-
             textBox1.Text = firstName;
             textBox2.Text = lastName;
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
+
 
             button1.Click += button1_Click;
             button2.Click += (s, e) => this.Close();
@@ -28,10 +29,7 @@ namespace PokeFormApp.Reviewer
 
         private async void button1_Click(object sender, EventArgs e)
         {
-            string firstName = textBox1.Text.Trim();
-            string lastName = textBox2.Text.Trim();
-
-            if (string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName))
+            if (string.IsNullOrEmpty(UpdatedFirstName) || string.IsNullOrEmpty(UpdatedLastName))
             {
                 MessageBox.Show("İsim ve soyisim boş olamaz.");
                 return;
@@ -40,29 +38,27 @@ namespace PokeFormApp.Reviewer
             var updatedReviewer = new ReviewerDto
             {
                 Id = reviewerId,
-                FirstName = firstName,
-                LastName = lastName
+                FirstName = UpdatedFirstName,
+                LastName = UpdatedLastName
             };
 
-            using (HttpClient client = new HttpClient())
+            try
             {
-                client.BaseAddress = new Uri("https://localhost:7091/");
-                var json = JsonSerializer.Serialize(updatedReviewer);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var response = await client.PutAsync($"api/Reviewer/{reviewerId}", content);
-                if (response.IsSuccessStatusCode)
+                bool success = await _httpRequest.PutAsync($"api/Reviewer/{reviewerId}", updatedReviewer);
+                if (success)
                 {
-                    MessageBox.Show("Reviewer güncellendi.");
-                    UpdatedReviewer = updatedReviewer;
+                    
                     this.DialogResult = DialogResult.OK;
                     this.Close();
                 }
                 else
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    MessageBox.Show($"Güncelleme başarısız! StatusCode: {response.StatusCode}\nDetay: {error}");
+                    MessageBox.Show("Güncelleme başarısız.");
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Hata: " + ex.Message);
             }
         }
     }

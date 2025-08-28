@@ -1,8 +1,8 @@
-﻿using Newtonsoft.Json;
-using PokemonReviewApp.Dto;  // DTO namespace'i
+﻿using PokeFormApp.Autofac;
+using PokeFormApp.Services;
+using PokemonReviewApp.Dto;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -10,49 +10,53 @@ namespace PokeFormApp
 {
     public partial class CategoryForm : Form
     {
-        private HttpClient client = new HttpClient
-        {
-            BaseAddress = new Uri("https://localhost:7091/")
-        };
-
+        private readonly IHttpRequest _httpRequest;
+        private readonly string url = "api/Category";
         private bool columnsCreated = false;
 
         public CategoryForm()
         {
             InitializeComponent();
+
+            _httpRequest = InstanceFactory.GetInstance<IHttpRequest>();
+
             this.Load += async (s, e) => await GetAllCategories();
+            dataGridView1.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dataGridView1.MultiSelect = true;  // çoklu seçim aktif
+
         }
 
         private async Task GetAllCategories()
         {
             try
             {
-                var response = await client.GetAsync("api/Category");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var categories = JsonConvert.DeserializeObject<List<CategoryDto>>(json);
+                var categories = await _httpRequest.GetAllAsync<List<CategoryDto>>(url);
 
-                    if (!columnsCreated)
+                if (!columnsCreated)
+                {
+                    dataGridView1.AutoGenerateColumns = false;
+                    dataGridView1.Columns.Clear();
+
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn
                     {
-                        dataGridView1.AutoGenerateColumns = false;
-                        dataGridView1.Columns.Clear();
+                        DataPropertyName = "Id",
+                        HeaderText = "ID",
+                        Width = 50,
+                        ReadOnly = true
+                    });
 
-                        var colId = new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID", Width = 50 };
-                        var colName = new DataGridViewTextBoxColumn { DataPropertyName = "Name", HeaderText = "Name", Width = 150 };
+                    dataGridView1.Columns.Add(new DataGridViewTextBoxColumn
+                    {
+                        DataPropertyName = "Name",
+                        HeaderText = "Name",
+                        Width = 150,
+                        ReadOnly = true
+                    });
 
-                        dataGridView1.Columns.Add(colId);
-                        dataGridView1.Columns.Add(colName);
-
-                        columnsCreated = true;
-                    }
-
-                    dataGridView1.DataSource = categories;
+                    columnsCreated = true;
                 }
-                else
-                {
-                    MessageBox.Show("Kategoriler yüklenemedi. Kod: " + response.StatusCode);
-                }
+
+                dataGridView1.DataSource = categories;
             }
             catch (Exception ex)
             {
@@ -60,99 +64,134 @@ namespace PokeFormApp
             }
         }
 
-        private async Task DeleteCategory(int id)
+        private async Task BulkDeleteCategories(List<int> ids)
         {
-            var response = await client.DeleteAsync($"api/Category/{id}");
-            if (response.IsSuccessStatusCode)
+            var request = new BulkDeleteRequestDto
             {
-                MessageBox.Show("Kategori silindi.");
+                Ids = ids
+            };
+
+            var result = await _httpRequest.PostAsync<BulkDeleteResultDto>($"{url}/bulk-delete", request);
+
+            if (result != null)
+            {
+                MessageBox.Show($"Silinenler: {string.Join(", ", result.DeletedIds)}\n" +
+                                $"Bulunamayanlar: {string.Join(", ", result.NotFoundIds)}");
                 await GetAllCategories();
             }
             else
             {
-                MessageBox.Show("Silme işlemi başarısız oldu.");
+                MessageBox.Show("Toplu silme başarısız.");
             }
         }
 
-        // button1: Ekleme
-        private async void button1_Click(object sender, EventArgs e)
+
+        private async Task UpdateCategory(CategoryDto updated)
+        {
+            var success = await _httpRequest.PutAsync($"{url}/{updated.Id}", updated);
+            if (success)
+            {
+                MessageBox.Show("Güncellendi!");
+            }
+      
+        }
+
+        private async void button1_Click(object sender, EventArgs e) // EKLE
         {
             var addForm = new CategoryAddForm();
-            var result = addForm.ShowDialog();
-            if (result == DialogResult.OK)
-            {
+            if (addForm.ShowDialog() == DialogResult.OK)
                 await GetAllCategories();
-            }
         }
 
-        // button2: Silme
-        private async void button2_Click(object sender, EventArgs e)
+        private async void button2_Click(object sender, EventArgs e) // TOPLU SİL
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
-                var selected = (CategoryDto)dataGridView1.SelectedRows[0].DataBoundItem;
-                var confirm = MessageBox.Show($"{selected.Name} kategorisini silmek istiyor musunuz?", "Sil", MessageBoxButtons.YesNo);
-                if (confirm == DialogResult.Yes)
+                var ids = new List<int>();
+
+                foreach (DataGridViewRow row in dataGridView1.SelectedRows)
                 {
-                    var response = await client.DeleteAsync($"api/Category/{selected.Id}");
-                    if (response.IsSuccessStatusCode)
+                    if (row.DataBoundItem is CategoryDto category)
                     {
-                        MessageBox.Show("Kategori silindi!");
-                        await GetAllCategories();
-                    }
-                    else
-                    {
-                        MessageBox.Show("Silme başarısız!");
+                        ids.Add(category.Id);
                     }
                 }
+
+                var confirm = MessageBox.Show($"{ids.Count} kategori silinecek. Emin misiniz?",
+                                               "Toplu Silme",
+                                               MessageBoxButtons.YesNo);
+
+                if (confirm == DialogResult.Yes)
+                {
+                    await BulkDeleteCategories(ids);
+                }
+            }
+            else
+            {
+                MessageBox.Show("Lütfen silmek için kategori(ler) seçin.");
             }
         }
 
-        // button3: Güncelleme
-        private async void button3_Click(object sender, EventArgs e)
+
+        private async void button3_Click(object sender, EventArgs e) // GÜNCELLE
         {
             if (dataGridView1.SelectedRows.Count > 0)
             {
-                var selected = (CategoryDto)dataGridView1.SelectedRows[0].DataBoundItem;
-                var updateForm = new CategoryUpdateForm(selected.Id, selected.Name);
-                var result = updateForm.ShowDialog();
-                if (result == DialogResult.OK)
+                var selected = dataGridView1.SelectedRows[0].DataBoundItem as CategoryDto;
+                if (selected == null)
                 {
+                    MessageBox.Show("Seçilen kategori bilgisi alınamadı.");
+                    return;
+                }
+
+                var category = await _httpRequest.GetByIdAsync<CategoryDto>(url, selected.Id);
+                var updateForm = new CategoryUpdateForm(category.Id, category.Name);
+
+                if (updateForm.ShowDialog() == DialogResult.OK)
+                {
+                    await UpdateCategory(new CategoryDto
+                    {
+                        Id = category.Id,
+                        Name = updateForm.UpdatedCategoryName
+                    });
+
                     await GetAllCategories();
                 }
             }
-        }
-
-        // button4: Detay gösterme
-        private async void button4_Click(object sender, EventArgs e)
-        {
-            if (dataGridView1.SelectedRows.Count > 0)
+            else
             {
-                var selected = (CategoryDto)dataGridView1.SelectedRows[0].DataBoundItem;
-                var response = await client.GetAsync($"api/Category/{selected.Id}");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var category = JsonConvert.DeserializeObject<CategoryDto>(json);
-                    MessageBox.Show($"ID: {category.Id}\nName: {category.Name}", "Kategori Detayı");
-                }
+                MessageBox.Show("Lütfen güncellemek için bir kategori seçin.");
             }
         }
 
-        // button5: Yenile
-        private async void button5_Click(object sender, EventArgs e)
+        private async void button4_Click(object sender, EventArgs e) // DETAY
+        {
+            if (dataGridView1.SelectedRows.Count > 0)
+            {
+                var selected = dataGridView1.SelectedRows[0].DataBoundItem as CategoryDto;
+                if (selected == null)
+                {
+                    MessageBox.Show("Seçilen kategori bilgisi alınamadı.");
+                    return;
+                }
+
+                var category = await _httpRequest.GetByIdAsync<CategoryDto>(url, selected.Id);
+                MessageBox.Show($"ID: {category.Id}\nName: {category.Name}", "Kategori Detayı");
+            }
+            else
+            {
+                MessageBox.Show("Lütfen detay görmek için bir kategori seçin.");
+            }
+        }
+
+        private async void button5_Click(object sender, EventArgs e) // YENİLE
         {
             await GetAllCategories();
         }
 
-        // button6: Geri Dön
-        private void button6_Click(object sender, EventArgs e)
+        private void button6_Click(object sender, EventArgs e) // GERİ DÖN
         {
-            var mainForm = new Form1();
-            mainForm.Show();
             this.Close();
         }
-
-        
     }
 }
